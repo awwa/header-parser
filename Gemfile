@@ -1,0 +1,10 @@
+source 'https://rubygems.org'
+ruby '2.1.0'
+
+gem 'sinatra'
+gem 'sinatra-contrib'
+gem 'dotenv'
+gem 'neography'
+gem 'neo4j'
+gem 'geoip2'
+gem 'rest-client'
