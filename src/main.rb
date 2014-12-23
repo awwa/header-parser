@@ -5,6 +5,15 @@ class Main < Sinatra::Base
   configure :production, :development do
     begin
       enable :logging
+
+      Dotenv.load
+      basic_auth_username = ENV["BASIC_AUTH_USERNAME"]
+      basic_auth_password = ENV["BASIC_AUTH_PASSWORD"]
+      if basic_auth_username.length > 0 then
+        use Rack::Auth::Basic do |username, password|
+          username == basic_auth_username && password == basic_auth_password
+        end
+      end
     rescue => e
       puts e.backtrace
       puts e.inspect
@@ -29,9 +38,9 @@ class Main < Sinatra::Base
     'Success'
   end
 
-  # get '/' do
-  #   'hello ssl sinatra'
-  # end
+  get '/' do
+    'hello'
+  end
 
 end
 

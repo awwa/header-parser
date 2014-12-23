@@ -9,7 +9,8 @@ module IpInfoDb
   def self.get_geo(ip_address)
     Dotenv.load
     api_key = ENV["IPINFODB_APIKEY"]
-    response = RestClient.get("http://api.ipinfodb.com/v3/ip-city/?format=json&key=#{api_key}&ip=#{ip_address}")
+    url = "http://api.ipinfodb.com/v3/ip-city/?format=json&key=#{api_key}&ip=#{ip_address}"
+    response = RestClient.get(url)
     geo = JSON.parse(response)
     if geo["statusCode"] == "OK" then
       ret = {}

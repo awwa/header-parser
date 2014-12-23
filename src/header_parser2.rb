@@ -6,6 +6,7 @@ class HeaderParser2
 
   def initialize
     @session = Neo4j::Session.open(:server_db)
+    Dotenv.load
   end
 
   def parse(header_text)
@@ -38,7 +39,9 @@ class HeaderParser2
 
         received = parse_row(header)
         # Make properties
-        props_from = {name: received["from_name"],
+        props_from = {
+          name: received["from_name"],
+          host: received["from_host"],
           ip: received["from_ip"],
           country_code: received["from_ip_country_code"],
           country_name: received["from_ip_country_name"],
@@ -46,21 +49,25 @@ class HeaderParser2
           latitude: received["from_ip_latitude"],
           longitude: received["from_ip_longitude"]
         }
-        # GlobalNode or LocalNode
-        label_from = get_label(received["from_ip"], received["from_ip_country_code"])
+        # GlobalNode or LocalNode / SendGrid
+        labels = get_labels(
+          received["from_ip"],
+          received["from_ip_country_code"],
+          received["from_host"])
         # Create Node to
-        if label_from == "GlobalNode" && received["from_ip"] != nil then
-          node_from = Neo4j::Label.find_nodes(label_from, "ip", received["from_ip"]).first
+        if received["from_name"] != nil then
+          node_from = Neo4j::Label.find_nodes(labels[0], "name", received["from_name"]).first
           if node_from == nil then
-            # TODO SendGrid関連サーバの場合、sendgridラベルを追加してもいいかも
-            node_from = Neo4j::Node.create(props_from, label_from, "from")
+            node_from = Neo4j::Node.create(props_from, *labels)
           end
         else
-          node_from = Neo4j::Node.create(props_from, label_from, "from")
+          node_from = Neo4j::Node.create(props_from, *labels)
         end
 
         # Make properties
-        props_by = { name: received["by_name"],
+        props_by = {
+          name: received["by_name"],
+          host: received["by_host"],
           ip: received["by_ip"],
           country_code: received["by_ip_country_code"],
           country_name: received["by_ip_country_name"],
@@ -69,16 +76,19 @@ class HeaderParser2
           longitude: received["by_ip_longitude"],
           stamp: received["stamp"].to_s
         }
-        # GlobalNode or LocalNode
-        label_by = get_label(received["by_ip"], received["by_ip_country_code"])
+        # GlobalNode or LocalNode / SendGrid
+        labels = get_labels(
+          received["by_ip"],
+          received["by_ip_country_code"],
+          received["by_host"])
         # Create Node to
-        if label_by == "GlobalNode" && received["by_ip"] != nil then
-          node_by = Neo4j::Label.find_nodes(label_by, "ip", received["by_ip"]).first
+        if received["by_name"] != nil then
+          node_by = Neo4j::Label.find_nodes(labels[0], "name", received["by_name"]).first
           if node_by == nil then
-            node_by = Neo4j::Node.create(props_by, label_by, "by")
+            node_by = Neo4j::Node.create(props_by, *labels)
           end
         else
-          node_by = Neo4j::Node.create(props_by, label_by, "by")
+          node_by = Neo4j::Node.create(props_by, *labels)
         end
 
         # Create relationship
@@ -111,13 +121,25 @@ class HeaderParser2
     headers
   end
 
-  def get_label(ip, country_code)
+  def get_labels(ip, country_code, host)
+    labels = []
     if ip != nil && country_code != nil then
-      label = "GlobalNode"
+      labels.push("GlobalNode")
     else
-      label = "LocalNode"
+      labels.push("LocalNode")
     end
-    label
+
+    isSendGrid = false;
+    if /\S*sendgrid\S*/i =~ host then
+      isSendGrid = true
+    end
+    if /\S*ismtpd\S*/i =~ host then
+      isSendGrid = true
+    end
+    if isSendGrid then
+      labels.push("SendGrid")
+    end
+    labels
   end
 
   def parse_row(row)
@@ -163,24 +185,24 @@ class HeaderParser2
     by_sec = $2
     # zzz (xxx [yyy])パターン
     by_sec =~ %r{(\S+)\s\((\S+)\s\[(\S+)\]\)}
-    by_name = $2 if !$2.nil?
+    by_host = $2 if !$2.nil?
     by_ip = $3 if !$3.nil?
     # zzz (yyy) パターン
-    if by_name.nil? then
+    if by_host.nil? then
       by_sec =~ %r{(\S+)\s[\(\)]*}
-      by_name = $1
+      by_host = $1
     end
     # zzz パターン
-    if by_name.nil? then
+    if by_host.nil? then
       by_sec =~ %r{(\S+)}
-      by_name = $1 if !$1.nil?
+      by_host = $1 if !$1.nil?
     end
     # ホスト名のみ判明している場合、IPアドレスの解決を試みる
-    if by_ip.nil? && !by_name.nil? then
+    if by_ip.nil? && !by_host.nil? then
       begin
-        by_ip = Resolv.getaddress(by_name).to_s
+        by_ip = Resolv.getaddress(by_host).to_s
       rescue => e
-        puts "Error Resolv by_name: #{e.inspect}"
+        puts "Error Resolv by_host: #{e.inspect}"
       end
 
     end
@@ -198,9 +220,9 @@ class HeaderParser2
     received["by_ip_region_name"] = by_ip_region_name
     received["by_ip_latitude"] = by_ip_latitude
     received["by_ip_longitude"] = by_ip_longitude
-    received["by_name"] = by_name
+    received["by_host"] = by_host
     received["by_ip"] = by_ip
-
+    received["by_name"] = "#{by_host}/#{by_ip}"
 
     # from節：fromで始まり最後まで
     from_sec = rest
@@ -209,24 +231,24 @@ class HeaderParser2
     from_sec = $2
     # zzz (xxx [yyy])パターン
     from_sec =~ %r{(\S+)\s\((\S+)\s\[(\S+)\]\)}
-    from_name = $2 if !$2.nil?
+    from_host = $2 if !$2.nil?
     from_ip = $3 if !$3.nil?
     # zzz (yyy) パターン
-    if from_name.nil? then
+    if from_host.nil? then
       from_sec =~ %r{(\S+)\s[\(\)]*}
-      from_name = $1
+      from_host = $1
     end
     # zzz パターン
-    if from_name.nil? then
+    if from_host.nil? then
       from_sec =~ %r{(\S+)}
-      from_name = $1 if !$1.nil?
+      from_host = $1 if !$1.nil?
     end
     # ホスト名のみ判明している場合、IPアドレスの解決を試みる
-    if from_ip.nil? && !from_name.nil? then
+    if from_ip.nil? && !from_host.nil? then
       begin
-        from_ip = Resolv.getaddress(from_name).to_s
+        from_ip = Resolv.getaddress(from_host).to_s
       rescue => e
-        puts "Error Resolv from_name: #{e.inspect}"
+        puts "Error Resolv from_host: #{e.inspect}"
       end
     end
     # IPアドレスが判明している場合、位置情報の解決を試みる
@@ -243,8 +265,19 @@ class HeaderParser2
     received["from_ip_region_name"] = from_ip_region_name
     received["from_ip_latitude"] = from_ip_latitude
     received["from_ip_longitude"] = from_ip_longitude
-    received["from_name"] = from_name
+    received["from_host"] = from_host
     received["from_ip"] = from_ip
+    received["from_name"] = "#{from_host}/#{from_ip}"
+
+    if received["from_host"] == nil || received["from_ip"] == nil ||
+      received["by_host"] == nil || received["by_ip"] == nil then
+      if ENV["SEND"] == "true" then
+        mailer = Mailer.new
+        body = "HEADER: #{row}\n PARSE: #{received.inspect}"
+        mailer.send(body)
+      end
+    end
+
 
     received
 

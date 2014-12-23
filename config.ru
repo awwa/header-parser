@@ -10,6 +10,7 @@ require 'resolv'
 
 require File.join(File.dirname(__FILE__), 'src', 'main')
 require File.join(File.dirname(__FILE__), 'src', 'ipinfodb')
+require File.join(File.dirname(__FILE__), 'src', 'mailer')
 require File.join(File.dirname(__FILE__), 'src', 'header_parser2')
 
 use Rack::Reloader, 0
