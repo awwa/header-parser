@@ -5,8 +5,8 @@ require "date"
 class HeaderParser2
 
   def initialize
-    @session = Neo4j::Session.open(:server_db)
     Dotenv.load
+    @session = Neo4j::Session.open(:server_db, 'http://localhost:7474', basic_auth: { username: ENV["NEO4J_AUTH_USERNAME"], password: ENV["NEO4J_AUTH_PASSWORD"]})
   end
 
   def parse(header_text)
