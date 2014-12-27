@@ -192,8 +192,14 @@ class HeaderParser2
       by_sec =~ %r{(\S+)\s[\(\)]*}
       by_host = $1
     end
-    # zzz パターン
+    # [yyy] パターン
     if by_host.nil? then
+      by_sec =~ %r{\s*\[(\S+)\]}
+      by_ip = $1
+      #puts "pattern : [yyy] #{by_ip}"
+    end
+    # zzz パターン
+    if by_host.nil? && by_ip.nil? then
       by_sec =~ %r{(\S+)}
       by_host = $1 if !$1.nil?
     end
@@ -204,7 +210,14 @@ class HeaderParser2
       rescue => e
         puts "Error Resolv by_host: #{e.inspect}"
       end
-
+    end
+    # IPアドレスのみ判明している場合、ホスト名の解決を試みる
+    if !by_ip.nil? && by_host.nil? then
+      begin
+        by_host = Resolv.getname(by_ip)
+      rescue => e
+        puts "Error Resolv by_ip: #{e.inspect}"
+      end
     end
     # IPアドレスが判明している場合、位置情報の解決を試みる
     if !by_ip.nil? then
@@ -237,11 +250,19 @@ class HeaderParser2
     if from_host.nil? then
       from_sec =~ %r{(\S+)\s[\(\)]*}
       from_host = $1
+      #puts "pattern : zzz (yyy)"
+    end
+    # [yyy] パターン
+    if from_host.nil? then
+      from_sec =~ %r{\s*\[(\S+)\]}
+      from_ip = $1
+      #puts "pattern : [yyy] #{from_ip}"
     end
     # zzz パターン
-    if from_host.nil? then
+    if from_host.nil? && from_ip.nil? then
       from_sec =~ %r{(\S+)}
       from_host = $1 if !$1.nil?
+      #puts "pattern : zzz"
     end
     # ホスト名のみ判明している場合、IPアドレスの解決を試みる
     if from_ip.nil? && !from_host.nil? then
@@ -249,6 +270,14 @@ class HeaderParser2
         from_ip = Resolv.getaddress(from_host).to_s
       rescue => e
         puts "Error Resolv from_host: #{e.inspect}"
+      end
+    end
+    # IPアドレスのみ判明している場合、ホスト名の解決を試みる
+    if !from_ip.nil? && from_host.nil? then
+      begin
+        from_host = Resolv.getname(from_ip)
+      rescue => e
+        puts "Error Resolv from_ip: #{e.inspect}"
       end
     end
     # IPアドレスが判明している場合、位置情報の解決を試みる
