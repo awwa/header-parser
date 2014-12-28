@@ -11,112 +11,121 @@ class HeaderParser2
 
   def parse(header_text)
 
-    node_prev = nil
-
     headers = header_text.split("\n")
-    headers = headers.reverse
-    headers.each{|header|
+    begin
+      tx = Neo4j::Transaction.new
 
-      if /^Message-ID:\s*/ =~ header then
-        row = header
-        row =~ %r{^Message-ID:\s*(.+)$}
-        @message_id = $1
-      end
+      node_prev = nil
 
-      if /^To:\s*/ =~ header then
-        row = header
-        row =~ %r{^To:\s*(.+)$}
-        @to = $1
-      end
+      headers = headers.reverse
+      headers.each{|header|
 
-      if /^From:\s*/ =~ header then
-        row = header
-        row =~ %r{^From:\s*(.+)$}
-        @from = $1
-      end
+        if /^Message-ID:\s*/ =~ header then
+          row = header
+          row =~ %r{^Message-ID:\s*(.+)$}
+          @message_id = $1
+        end
 
-      if /^Received: from/ =~ header then
+        if /^To:\s*/ =~ header then
+          row = header
+          row =~ %r{^To:\s*(.+)$}
+          @to = $1
+        end
 
-        received = parse_row(header)
-        # Make properties
-        props_from = {
-          name: received["from_name"],
-          host: received["from_host"],
-          ip: received["from_ip"],
-          country_code: received["from_ip_country_code"],
-          country_name: received["from_ip_country_name"],
-          region_name: received["from_ip_region_name"],
-          latitude: received["from_ip_latitude"],
-          longitude: received["from_ip_longitude"]
-        }
-        # GlobalNode or LocalNode / SendGrid
-        labels = get_labels(
-          received["from_ip"],
-          received["from_ip_country_code"],
-          received["from_host"])
-        # Create Node to
-        if received["from_name"] != nil then
-          node_from = Neo4j::Label.find_nodes(labels[0], "name", received["from_name"]).first
-          if node_from == nil then
+        if /^From:\s*/ =~ header then
+          row = header
+          row =~ %r{^From:\s*(.+)$}
+          @from = $1
+        end
+
+        if /^Received: from/ =~ header then
+
+          received = parse_row(header)
+          # Make properties
+          props_from = {
+            name: received["from_name"],
+            host: received["from_host"],
+            ip: received["from_ip"],
+            country_code: received["from_ip_country_code"],
+            country_name: received["from_ip_country_name"],
+            region_name: received["from_ip_region_name"],
+            latitude: received["from_ip_latitude"],
+            longitude: received["from_ip_longitude"]
+          }
+          # GlobalNode or LocalNode / SendGrid
+          labels = get_labels(
+            received["from_ip"],
+            received["from_ip_country_code"],
+            received["from_host"])
+          # Create Node to
+          if received["from_name"] != nil then
+            node_from = Neo4j::Label.find_nodes(labels[0], "name", received["from_name"]).first
+            if node_from == nil then
+              node_from = Neo4j::Node.create(props_from, *labels)
+            end
+          else
             node_from = Neo4j::Node.create(props_from, *labels)
           end
-        else
-          node_from = Neo4j::Node.create(props_from, *labels)
-        end
 
-        # Make properties
-        props_by = {
-          name: received["by_name"],
-          host: received["by_host"],
-          ip: received["by_ip"],
-          country_code: received["by_ip_country_code"],
-          country_name: received["by_ip_country_name"],
-          region_name: received["by_ip_region_name"],
-          latitude: received["by_ip_latitude"],
-          longitude: received["by_ip_longitude"],
-          stamp: received["stamp"].to_s
-        }
-        # GlobalNode or LocalNode / SendGrid
-        labels = get_labels(
-          received["by_ip"],
-          received["by_ip_country_code"],
-          received["by_host"])
-        # Create Node to
-        if received["by_name"] != nil then
-          node_by = Neo4j::Label.find_nodes(labels[0], "name", received["by_name"]).first
-          if node_by == nil then
+          # Make properties
+          props_by = {
+            name: received["by_name"],
+            host: received["by_host"],
+            ip: received["by_ip"],
+            country_code: received["by_ip_country_code"],
+            country_name: received["by_ip_country_name"],
+            region_name: received["by_ip_region_name"],
+            latitude: received["by_ip_latitude"],
+            longitude: received["by_ip_longitude"],
+            stamp: received["stamp"].to_s
+          }
+          # GlobalNode or LocalNode / SendGrid
+          labels = get_labels(
+            received["by_ip"],
+            received["by_ip_country_code"],
+            received["by_host"])
+          # Create Node to
+          if received["by_name"] != nil then
+            node_by = Neo4j::Label.find_nodes(labels[0], "name", received["by_name"]).first
+            if node_by == nil then
+              node_by = Neo4j::Node.create(props_by, *labels)
+            end
+          else
             node_by = Neo4j::Node.create(props_by, *labels)
           end
-        else
-          node_by = Neo4j::Node.create(props_by, *labels)
-        end
 
-        # Create relationship
-        props_rel = {}
-        props_rel["for"]  = received["for"]
-        props_rel["with"] = received["with"]
-        props_rel["id"]   = received["id"]
-        props_rel["message_id"] = @message_id
-        props_rel["to"] = @to
-        props_rel["from"] = @from
-        rel = node_from.create_rel(:relay, node_by, props_rel)
-
-        # Create relationship with prev
-        if node_prev != nil then
+          # Create relationship
           props_rel = {}
+          props_rel["for"]  = received["for"]
+          props_rel["with"] = received["with"]
+          props_rel["id"]   = received["id"]
           props_rel["message_id"] = @message_id
           props_rel["to"] = @to
           props_rel["from"] = @from
-          rel = node_prev.create_rel(:relay, node_from, props_rel)
+          rel = node_from.create_rel(:relay, node_by, props_rel)
+
+          # Create relationship with prev
+          if node_prev != nil then
+            props_rel = {}
+            props_rel["message_id"] = @message_id
+            props_rel["to"] = @to
+            props_rel["from"] = @from
+            rel = node_prev.create_rel(:relay, node_from, props_rel)
+          end
+
+          node_prev = node_by
+
+          puts "INPUT:  #{header}"
+          puts "OUTPUT: #{received.inspect}"
         end
 
-        node_prev = node_by
-
-        puts "INPUT:  #{header}"
-        puts "OUTPUT: #{received.inspect}"
-      end
-
-    }
+      }
+    rescue => e
+      tx.failure
+      raise e
+    ensure
+      tx.close
+    end
 
     headers
   end
