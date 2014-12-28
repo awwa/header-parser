@@ -298,8 +298,11 @@ class HeaderParser2
     received["from_ip"] = from_ip
     received["from_name"] = "#{from_host}/#{from_ip}"
 
-    if received["from_host"] == nil || received["from_ip"] == nil ||
-      received["by_host"] == nil || received["by_ip"] == nil then
+    if
+      (received["from_host"] == nil || received["from_ip"] == nil ||
+      received["by_host"] == nil || received["by_ip"] == nil) &&
+      !is_white_listed(received["from_host"]) &&
+      !is_white_listed(received["by_host"]) then
       if ENV["SEND"] == "true" then
         mailer = Mailer.new
         body = "HEADER: #{row}\n PARSE: #{received.inspect}"
@@ -310,6 +313,15 @@ class HeaderParser2
 
     received
 
+  end
+
+  def is_white_listed(host)
+    Dotenv.load
+    white_list = ENV["WHITE_LIST"].split(",")
+    white_list.each{|white|
+      return true if white == host
+    }
+    return false
   end
 
 end
