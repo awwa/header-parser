@@ -36,3 +36,4 @@ build/
 /spec/
 mail.sh
 Gemfile.lock
+db/

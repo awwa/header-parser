@@ -38,6 +38,14 @@ class HeaderParser2
           @from = $1
         end
 
+        if /^Date:\s*/ =~ header then
+          row = header
+          row =~ %r{^Date:\s*(.+)$}
+          date_sec = $1
+          date = Time.parse(date_sec)
+          @date = date
+        end
+
         if /^Received: from/ =~ header then
 
           received = parse_row(header)
@@ -102,6 +110,7 @@ class HeaderParser2
           props_rel["message_id"] = @message_id
           props_rel["to"] = @to
           props_rel["from"] = @from
+          props_rel["date"] = @date.to_s
           rel = node_from.create_rel(:relay, node_by, props_rel)
 
           # Create relationship with prev
@@ -110,6 +119,7 @@ class HeaderParser2
             props_rel["message_id"] = @message_id
             props_rel["to"] = @to
             props_rel["from"] = @from
+            props_rel["date"] = @date.to_s
             rel = node_prev.create_rel(:relay, node_from, props_rel)
           end
 
