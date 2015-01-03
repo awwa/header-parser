@@ -110,7 +110,7 @@ class HeaderParser2
           props_rel["message_id"] = @message_id
           props_rel["to"] = @to
           props_rel["from"] = @from
-          props_rel["date"] = @date.to_s
+          props_rel["date"] = @date.to_i
           rel = node_from.create_rel(:relay, node_by, props_rel)
 
           # Create relationship with prev
@@ -119,7 +119,7 @@ class HeaderParser2
             props_rel["message_id"] = @message_id
             props_rel["to"] = @to
             props_rel["from"] = @from
-            props_rel["date"] = @date.to_s
+            props_rel["date"] = @date.to_i
             rel = node_prev.create_rel(:relay, node_from, props_rel)
           end
 
