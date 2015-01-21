@@ -45,7 +45,7 @@ The paths from Money Forward. It seems that the servers are redundant.
 All paths. The center Node is destination Node.  
 <img src="http://3.bp.blogspot.com/-VNeIUCSguVI/VK6CWulXuWI/AAAAAAAAYAQ/9N0vAi84eac/s1600/all.png" width="450px" />  
 
-# A memos for search
+# Memos for search
 message-idを指定してルート指定
 MATCH (s)-[r]->(g) WHERE r.message_id =~ ".*20141228204932\\.5118\\.qmail@itpms03\\.itmedia\\.co\\.jp.*" RETURN s, r, g
 
