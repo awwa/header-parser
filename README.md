@@ -7,7 +7,7 @@ This application visualizes the SMTP relay via Neo4j.
 # How it works?
 - Forward all emails to the Parse Webhook address.
 - SendGrid POST the emails to a URL(Web App).
-- "Web App" receives POSTs from SendGrid, then parse the headers of emails.
+- "Web App" receives POSTs from SendGrid, then parse the headers (Received header) of emails.
 - "Web App" looks up DNS and searches IP geo location.
 - "Web App" creates Nodes and Relationships on the Neo4j.
 
